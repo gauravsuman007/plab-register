@@ -78,10 +78,22 @@ services:
       # Set in a .env file next to this compose file at deploy time.
       SEEDER_URL: ${SEEDER_URL:?set SEEDER_URL to pornolab-seeder's reachable base URL, e.g. http://192.168.2.100:8010}
       TS_SOCKET: /var/run/tailscale/tailscaled.sock
+      # Selecting an exit node replaces the shared netns's default route
+      # with one via tailscale0, which also swallows return traffic for
+      # inbound WebUI connections from this subnet -- app/tailscale.py
+      # re-pins an explicit route for it via the original gateway once an
+      # exit node is set. Set to the subnet the WebUI is actually reached
+      # from (e.g. the home LAN); leave unset to skip the workaround.
+      LAN_CIDR: ${LAN_CIDR:-}
     volumes:
       - ./data:/data
       - tailscale-socket:/var/run/tailscale:ro
     network_mode: "service:tailscale"
+    # Needed for the `ip route` call above -- it runs in the shared netns,
+    # but capabilities are per-container, not per-netns, so this container
+    # needs its own NET_ADMIN even though tailscaled itself runs next door.
+    cap_add:
+      - NET_ADMIN
     depends_on:
       tailscale:
         condition: service_healthy

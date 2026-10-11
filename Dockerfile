@@ -6,9 +6,11 @@ WORKDIR /app
 # headers, libzstd), Xvfb (camoufox's headless="virtual" mode shells out to
 # it, and patchright's headful fallback also runs under it), and Firefox's
 # runtime shared libs -- camoufox is a patched Firefox, so it needs the same
-# system packages as the vanilla browser.
+# system packages as the vanilla browser. iproute2 is for the `ip route`
+# call in app/tailscale.py that re-pins the LAN route after an exit node
+# takes over the default route (see that module).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        gcc g++ python3-dev libzstd-dev xvfb curl \
+        gcc g++ python3-dev libzstd-dev xvfb curl iproute2 \
         libgtk-3-0 libasound2 libdbus-glib-1-2 libxt6 libxtst6 \
         libgl1 libegl1 libxcomposite1 libxdamage1 libxrandr2 libpango-1.0-0 \
         fonts-liberation ca-certificates \

@@ -40,10 +40,16 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       SEEDER_URL: ${SEEDER_URL:?set SEEDER_URL to pornolab-seeder's reachable base URL}
       TS_SOCKET: /var/run/tailscale/tailscaled.sock
+      # See docker-compose.yml's comment -- selecting an exit node replaces
+      # the shared netns's default route and would otherwise take the
+      # WebUI down for this subnet without this set.
+      LAN_CIDR: ${LAN_CIDR:-}
     volumes:
       - ./data:/data
       - tailscale-socket:/var/run/tailscale:ro
     network_mode: "service:tailscale"
+    cap_add:
+      - NET_ADMIN
     depends_on:
       tailscale:
         condition: service_healthy
