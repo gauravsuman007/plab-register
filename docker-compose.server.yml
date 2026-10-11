@@ -1,0 +1,60 @@
+# Server-deploy variant of docker-compose.yml -- uses the published image
+# instead of `build: .` (the repo isn't checked out on the server).
+#
+#   docker compose -p plab-register -f docker-compose.server.yml up -d
+#   UI: http://<host>:8020
+services:
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: plab-register-ts
+    hostname: plab-register
+    environment:
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SOCKET: /var/run/tailscale/tailscaled.sock
+      TS_USERSPACE: "false"
+      TS_EXTRA_ARGS: "--reset --netfilter-mode=off"
+      TS_BOOT_TIMEOUT: "87600h"
+    volumes:
+      - tailscale-state:/var/lib/tailscale
+      - tailscale-socket:/var/run/tailscale
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    ports:
+      - "${REGISTER_PORT:-8020}:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "test", "-S", "/var/run/tailscale/tailscaled.sock"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+
+  plab-register:
+    image: ghcr.io/gauravsuman007/plab-register:latest
+    container_name: plab-register-app
+    environment:
+      DATA_DIR: /data
+      APP_PASSWORD: ${APP_PASSWORD:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      SEEDER_URL: ${SEEDER_URL:?set SEEDER_URL to pornolab-seeder's reachable base URL}
+      TS_SOCKET: /var/run/tailscale/tailscaled.sock
+    volumes:
+      - ./data:/data
+      - tailscale-socket:/var/run/tailscale:ro
+    network_mode: "service:tailscale"
+    depends_on:
+      tailscale:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 6
+
+volumes:
+  tailscale-state:
+  tailscale-socket:
