@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>plab-register</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span class="brand-dot"></span><h1 style="font-size:16px;">plab-register</h1></div>
+  <div class="pills" id="pills"></div>
+  <span class="badge" id="egressBadge" title="Network egress - set below">Direct</span>
+</div>
+
+<main>
+
+  <div class="card">
+    <div class="card-head"><h2>Tailscale</h2></div>
+    <p class="small muted">Optional. When no exit node is selected, traffic is normal/direct.</p>
+    <div id="tailscaleLoggedOut" style="display:none;">
+      <button class="btn primary" id="tsLoginBtn">Log in</button>
+      <div class="small muted" id="tsLoginMsg" style="margin-top:8px;"></div>
+      <a id="tsLoginUrl" href="#" target="_blank" style="display:none;"></a>
+    </div>
+    <div id="tailscaleLoggedIn" style="display:none;">
+      <label class="small muted">Exit node</label>
+      <select id="tsExitNodeSelect"></select>
+      <button class="btn" id="tsLogoutBtn" style="margin-left:8px;">Log out</button>
+    </div>
+    <div class="small" id="tsStatus"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2>Settings</h2></div>
+    <div class="form-grid" id="settingsForm">
+      <label>Email factory provider
+        <select name="email_factory_provider">
+          <option value="tuta">Tuta / tutamail.com (no phone, no captcha)</option>
+          <option value="gmx">GMX / web.de (needs phone - dead end)</option>
+          <option value="mailru">mail.ru (needs sms-activate key)</option>
+        </select>
+      </label>
+      <label>GMX sub-provider
+        <select name="gmx_provider">
+          <option value="web.de">web.de</option>
+          <option value="gmx.net">gmx.net</option>
+        </select>
+      </label>
+      <label>mail.ru domain
+        <input type="text" name="mailru_domain" placeholder="mail.ru">
+      </label>
+      <label>sms-activate.org API key
+        <input type="password" name="sms_activate_api_key" placeholder="(unchanged)">
+      </label>
+      <label>pornolab base URL
+        <input type="text" name="pornolab_url" placeholder="https://pornolab.net">
+      </label>
+    </div>
+    <div class="form-actions">
+      <button class="btn primary" id="saveSettingsBtn">Save settings</button>
+      <span class="form-msg" id="settingsMsg"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2>Register a new PornoLab account</h2></div>
+    <p class="small muted">Creates an email with the configured provider, registers PornoLab, and
+      (for Tuta) activates it automatically, then hands the account to pornolab-seeder.</p>
+    <button class="btn primary" id="autoRegisterBtn">Full automation</button>
+    <div class="small" id="autoRegisterStatus" style="margin-top:8px;"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2>Create an atomicmail.io inbox (interactive)</h2></div>
+    <p class="small muted">atomicmail.io's hCaptcha needs a human click - this walks you through it.</p>
+    <button class="btn" id="amStartBtn">Start atomicmail signup</button>
+    <div id="amChallenge" style="display:none; margin-top:10px;">
+      <img id="amImage" style="max-width:100%; border-radius:6px; border:1px solid var(--border); cursor:crosshair;">
+      <div class="small muted" id="amPrompt"></div>
+      <div class="form-actions">
+        <button class="btn primary" id="amVerifyBtn">Verify</button>
+        <button class="btn danger" id="amCancelBtn">Cancel</button>
+      </div>
+    </div>
+    <div class="small" id="amStatus" style="margin-top:8px;"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2>Email registry</h2>
+      <div class="card-head-actions">
+        <select id="newEmailProvider">
+          <option value="tuta">Tuta</option>
+          <option value="gmx">GMX</option>
+        </select>
+        <button class="btn" id="newEmailBtn">+ New email</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>ID</th><th>Provider</th><th>Address</th><th>Created</th><th></th></tr></thead>
+        <tbody id="emailsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2>Manual registration (fallback)</h2></div>
+    <p class="small muted">Use when full automation fails and you want to drive the form by hand.</p>
+    <button class="btn" id="fetchFormBtn">Fetch registration form</button>
+    <div id="manualForm" style="display:none; margin-top:10px;" class="form-grid">
+      <div class="captcha-block">
+        <img id="captchaImg" style="max-width:160px;">
+        <input type="text" id="mUsername" placeholder="username">
+        <input type="text" id="mPassword" placeholder="password">
+        <input type="text" id="mEmail" placeholder="email">
+        <input type="text" id="mCaptcha" placeholder="captcha text">
+      </div>
+    </div>
+    <div class="form-actions" id="manualActions" style="display:none;">
+      <button class="btn primary" id="submitRegisterBtn">Submit</button>
+      <span class="form-msg" id="manualMsg"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2>Recent events</h2></div>
+    <div class="table-wrap">
+      <table class="table"><tbody id="eventsBody"></tbody></table>
+    </div>
+  </div>
+
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

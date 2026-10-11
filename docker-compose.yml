@@ -1,0 +1,98 @@
+# plab-register: email-account creation + PornoLab registration, with its
+# own Tailscale sidecar for optional exit-node routing (independent from
+# pornolab-seeder's own tailscale sidecar/exit-node selection).
+#
+#   docker compose up -d --build
+#   UI: http://<host>:8020
+#
+# With no exit node selected (or not logged in at all), egress is the
+# ordinary network -- tailscale only changes routing once an exit node is
+# actively set from the UI. Same proven setup as pornolab-seeder's tailscale
+# integration (see that repo's docker-compose.tailscale.yml for the history
+# behind each of these flags).
+services:
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: plab-register-ts
+    hostname: plab-register
+    environment:
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SOCKET: /var/run/tailscale/tailscaled.sock
+      TS_USERSPACE: "false"
+      # This node only ever consumes someone else's exit node; it never
+      # advertises itself as one or as a subnet router, so it doesn't need
+      # tailscaled's own nftables rules -- which otherwise conflict with
+      # Docker's own port publishing for every container sharing this netns.
+      #
+      # --reset: once an exit node is selected (via the app's own `tailscale
+      # set --exit-node=...`), that choice is a persisted, non-default pref.
+      # On the NEXT boot, containerboot's own `tailscale up` call doesn't
+      # restate it and the CLI refuses to proceed ("requires mentioning all
+      # non-default flags"), crashing the container on every restart.
+      # --reset clears prior prefs before applying just these flags, so boot
+      # always succeeds -- the tradeoff is a selected exit node does not
+      # survive a container restart and must be reselected from the UI.
+      TS_EXTRA_ARGS: "--reset --netfilter-mode=off"
+      # Without this, containerboot gives up waiting for interactive login
+      # approval after its default boot timeout and kills tailscaled, which
+      # the restart policy then retries forever -- a crash loop that tears
+      # down this container's shared network namespace every ~60s.
+      # Unlogged-in is a normal, supported state here (see the healthcheck
+      # below), so this container should sit and wait, not restart.
+      TS_BOOT_TIMEOUT: "87600h"
+    volumes:
+      - tailscale-state:/var/lib/tailscale
+      - tailscale-socket:/var/run/tailscale
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    ports:
+      - "${REGISTER_PORT:-8020}:8000"
+    restart: unless-stopped
+    healthcheck:
+      # Socket existing proves tailscaled booted and is listening --
+      # deliberately NOT `tailscale status`, which exits 1 whenever the
+      # node isn't logged in yet, and "not logged in" is a normal,
+      # supported state here, not a failure.
+      test: ["CMD", "test", "-S", "/var/run/tailscale/tailscaled.sock"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+
+  plab-register:
+    build: .
+    image: plab-register:latest
+    container_name: plab-register-app
+    environment:
+      DATA_DIR: /data
+      APP_PASSWORD: ${APP_PASSWORD:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # This container shares its OWN tailscale sidecar's netns, not
+      # pornolab-seeder's -- the two are separate compose projects on
+      # separate networks, so "pornolab-seeder" as a bare hostname will NOT
+      # resolve here. Point this at wherever the seeder's API is actually
+      # reachable from this host (its published port on the docker host's
+      # LAN IP is the simplest choice, e.g. http://192.168.2.100:8010).
+      # Set in a .env file next to this compose file at deploy time.
+      SEEDER_URL: ${SEEDER_URL:?set SEEDER_URL to pornolab-seeder's reachable base URL, e.g. http://192.168.2.100:8010}
+      TS_SOCKET: /var/run/tailscale/tailscaled.sock
+    volumes:
+      - ./data:/data
+      - tailscale-socket:/var/run/tailscale:ro
+    network_mode: "service:tailscale"
+    depends_on:
+      tailscale:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 6
+
+volumes:
+  tailscale-state:
+  tailscale-socket:
