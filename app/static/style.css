@@ -27,6 +27,8 @@ h1, h2 { margin: 0; font-weight: 600; }
 h2 { font-size: 15px; color: var(--text); }
 .muted { color: var(--muted); }
 .small { font-size: 12px; }
+.cred-hidden { cursor: pointer; color: var(--muted); font-family: monospace; }
+.cred-hidden:hover { color: var(--text); }
 
 .topbar {
   display: flex;

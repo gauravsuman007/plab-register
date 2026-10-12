@@ -239,16 +239,42 @@ def _rand_password(n: int = 16) -> str:
     return "".join(pw)
 
 
+def _seeder_auth():
+    return ("register", APP_PASSWORD) if APP_PASSWORD else None
+
+
+@app.get("/api/pornolab-accounts")
+async def pornolab_accounts():
+    """Proxy to pornolab-seeder's own account list -- plab-register keeps no
+    long-term account record of its own (see module docstring), so this is
+    the only way its UI can show what's already been registered."""
+    try:
+        async with httpx.AsyncClient(timeout=15, auth=_seeder_auth()) as c:
+            r = await c.get(f"{SEEDER_URL.rstrip('/')}/api/accounts")
+            r.raise_for_status()
+            return r.json()
+    except httpx.HTTPError as e:
+        _fail(ValueError(f"could not reach pornolab-seeder: {e}"), 502)
+
+
+@app.get("/api/pornolab-accounts/{account_id}/credentials")
+async def pornolab_account_credentials(account_id: int):
+    try:
+        async with httpx.AsyncClient(timeout=15, auth=_seeder_auth()) as c:
+            r = await c.get(f"{SEEDER_URL.rstrip('/')}/api/accounts/{account_id}/credentials")
+            r.raise_for_status()
+            return r.json()
+    except httpx.HTTPError as e:
+        _fail(ValueError(f"could not reach pornolab-seeder: {e}"), 502)
+
+
 async def _import_into_seeder(*, pornolab_username: str, pornolab_password: str,
                                email_address: str, email_password: str, email_provider: str) -> dict:
     """Hand a finished registration to pornolab-seeder, which is the system
     of record for accounts. Protected by the same APP_PASSWORD Basic-auth
     scheme pornolab-seeder's own UI uses -- this service is configured with
     the same password, no separate secret needed."""
-    auth = None
-    if APP_PASSWORD:
-        auth = ("register", APP_PASSWORD)
-    async with httpx.AsyncClient(timeout=30, auth=auth) as c:
+    async with httpx.AsyncClient(timeout=30, auth=_seeder_auth()) as c:
         r = await c.post(f"{SEEDER_URL.rstrip('/')}/api/accounts/import", json={
             "label": pornolab_username,
             "pornolab_username": pornolab_username,

@@ -98,10 +98,26 @@
         <button class="btn" id="newEmailBtn">+ New email</button>
       </div>
     </div>
+    <p class="small muted">In-flight inboxes, created but not yet turned into a PornoLab account.</p>
     <div class="table-wrap">
       <table class="table">
-        <thead><tr><th>ID</th><th>Provider</th><th>Address</th><th>Created</th><th></th></tr></thead>
+        <thead><tr><th>ID</th><th>Provider</th><th>Address</th><th>Password</th><th>Created</th><th></th></tr></thead>
         <tbody id="emailsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2>PornoLab accounts</h2>
+      <button class="btn small" id="refreshAccountsBtn">Refresh</button>
+    </div>
+    <p class="small muted">Read from pornolab-seeder, which is the system of record -- this app
+      keeps no account list of its own.</p>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>PornoLab username</th><th>Password</th><th>Email</th><th>Email password</th><th>Logged in</th><th></th></tr></thead>
+        <tbody id="pornolabAccountsBody"></tbody>
       </table>
     </div>
   </div>

@@ -158,6 +158,7 @@ function initAutoRegister() {
         (r.activated ? " - activated." : " - activation pending, check the inbox below.") +
         ` Imported into pornolab-seeder as account ${escapeHtml(r.account_id)}.`;
       loadEvents();
+      loadPornolabAccounts();
     } catch (e) {
       status.textContent = `Error: ${e.message}`;
     } finally {
@@ -169,6 +170,13 @@ function initAutoRegister() {
 // -------------------------------------------------------------------------- //
 // Emails registry
 // -------------------------------------------------------------------------- //
+const PROVIDER_LOGIN_URL = {
+  tuta: "https://app.tuta.com/login",
+  gmx: "https://web.de/",
+  mailru: "https://account.mail.ru/login",
+  atomicmail: "https://atomicmail.io/app/auth/sign-in",
+};
+
 async function loadEmails() {
   const rows = await api("GET", "/api/emails");
   $("#emailsBody").innerHTML = rows.map(r => `
@@ -176,14 +184,16 @@ async function loadEmails() {
       <td>${r.id}</td>
       <td>${escapeHtml(r.provider)}</td>
       <td>${escapeHtml(r.address)}</td>
+      <td><span class="cred-hidden" data-act="reveal-pw">••••••••</span></td>
       <td>${new Date(r.created_at * 1000).toLocaleString()}</td>
       <td>
+        ${PROVIDER_LOGIN_URL[r.provider] ? `<a class="btn small" href="${PROVIDER_LOGIN_URL[r.provider]}" target="_blank">Login page</a>` : ""}
         <button class="btn small" data-act="inbox">Check inbox</button>
         <button class="btn small primary" data-act="register">Register on PornoLab</button>
         <button class="btn small danger" data-act="delete">Delete</button>
       </td>
     </tr>
-  `).join("") || `<tr><td colspan="5" class="muted">No emails yet.</td></tr>`;
+  `).join("") || `<tr><td colspan="6" class="muted">No emails yet.</td></tr>`;
 }
 
 function initEmails() {
@@ -202,6 +212,18 @@ function initEmails() {
   });
 
   $("#emailsBody").addEventListener("click", async e => {
+    const revealEl = e.target.closest("[data-act='reveal-pw']");
+    if (revealEl) {
+      const id = revealEl.closest("tr").dataset.id;
+      try {
+        const r = await api("GET", `/api/emails/${id}/credentials`);
+        revealEl.textContent = r.password;
+        revealEl.classList.remove("cred-hidden");
+      } catch (e2) {
+        revealEl.textContent = `Error: ${e2.message}`;
+      }
+      return;
+    }
     const btn = e.target.closest("button[data-act]");
     if (!btn) return;
     const tr = btn.closest("tr");
@@ -220,6 +242,7 @@ function initEmails() {
         alert(`Registered ${r.username} (account ${r.account_id}).` + (r.activated ? " Activated." : " Activation pending."));
         await loadEmails();
         loadEvents();
+        loadPornolabAccounts();
       }
     } catch (e2) {
       alert(`Error: ${e2.message}`);
@@ -229,6 +252,54 @@ function initEmails() {
   });
 
   loadEmails();
+}
+
+// -------------------------------------------------------------------------- //
+// PornoLab accounts (read from pornolab-seeder, which owns the record)
+// -------------------------------------------------------------------------- //
+async function loadPornolabAccounts() {
+  const body = $("#pornolabAccountsBody");
+  let rows;
+  try {
+    rows = await api("GET", "/api/pornolab-accounts");
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="6" class="muted">Error: ${escapeHtml(e.message)}</td></tr>`;
+    return;
+  }
+  body.innerHTML = rows.map(r => `
+    <tr data-id="${r.id}">
+      <td>${escapeHtml(r.pornolab_username || "")}</td>
+      <td><span class="cred-hidden" data-act="reveal-creds">••••••••</span></td>
+      <td>${escapeHtml(r.email_address || "")}
+        ${r.email_provider && PROVIDER_LOGIN_URL[r.email_provider] ? `<a href="${PROVIDER_LOGIN_URL[r.email_provider]}" target="_blank">(login)</a>` : ""}
+      </td>
+      <td><span class="cred-hidden" data-act="reveal-creds">••••••••</span></td>
+      <td>${r.logged_in ? "yes" : "no"}</td>
+      <td><button class="btn small" data-act="reveal-creds-btn">Show credentials</button></td>
+    </tr>
+  `).join("") || `<tr><td colspan="6" class="muted">No accounts yet -- register one above.</td></tr>`;
+}
+
+function initPornolabAccounts() {
+  $("#refreshAccountsBtn").addEventListener("click", loadPornolabAccounts);
+
+  $("#pornolabAccountsBody").addEventListener("click", async e => {
+    const el = e.target.closest("[data-act='reveal-creds'], [data-act='reveal-creds-btn']");
+    if (!el) return;
+    const tr = el.closest("tr");
+    const id = tr.dataset.id;
+    try {
+      const r = await api("GET", `/api/pornolab-accounts/${id}/credentials`);
+      tr.querySelectorAll("[data-act='reveal-creds']").forEach((span, i) => {
+        span.textContent = i === 0 ? r.pornolab_password : r.email_password;
+        span.classList.remove("cred-hidden");
+      });
+    } catch (e2) {
+      alert(`Error: ${e2.message}`);
+    }
+  });
+
+  loadPornolabAccounts();
 }
 
 // -------------------------------------------------------------------------- //
@@ -352,6 +423,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initSettings();
   initAutoRegister();
   initEmails();
+  initPornolabAccounts();
   initAtomicmail();
   initManualRegister();
   loadEvents();
